@@ -1,0 +1,46 @@
+import sqlite3
+import sys
+
+from PyQt5 import uic
+from PyQt5.QtWidgets import QApplication, QMainWindow
+
+
+class MyWidget(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        uic.loadUi('progect.ui', self)
+
+        self.criteria.addItem('Код переработки')
+        self.criteria.addItem('Материал')
+
+        self.color.addItem('зелёный')
+        self.color.addItem('коричневый')
+        self.color.addItem('бесцветный')
+        self.color.addItem('кислотный')
+        self.color.addItem('голубой')
+        self.color.addItem('белый')
+
+        self.search.clicked.connect(self.run)
+        self.event_record.clicked.connect(self.calendar)
+
+    def run(self):
+        self.name_2.setText("OK")
+
+    def calendar(self):
+        try:
+            con = sqlite3.connect('calendar.db')
+            cur = con.cursor()
+            a = str(self.event.text())
+            cur.execute(f"""INSERT INTO dairy(date, text) VALUES({self.calendarWidget.selectedDate().getDate()}, {a})""")
+            print(cur)
+            con.commit()
+            con.close()
+        except Exception as e:
+            print(e)
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    ex = MyWidget()
+    ex.show()
+    sys.exit(app.exec_())
