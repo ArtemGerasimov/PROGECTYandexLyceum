@@ -1,5 +1,6 @@
 import sqlite3
 import sys
+from datetime import date
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication, QMainWindow
@@ -10,9 +11,11 @@ class MyWidget(QMainWindow):
         super().__init__()
         uic.loadUi('progect.ui', self)
 
+        self.criteria.addItem('Выберите критерий')
         self.criteria.addItem('Код переработки')
         self.criteria.addItem('Материал')
 
+        self.color.addItem('Выберите цвет')
         self.color.addItem('зелёный')
         self.color.addItem('коричневый')
         self.color.addItem('бесцветный')
@@ -20,19 +23,87 @@ class MyWidget(QMainWindow):
         self.color.addItem('голубой')
         self.color.addItem('белый')
 
+        self.color.hide()
+        self.comboBox.hide()
+
+        self.comboBox.addItem('Выберите материал')
+
         self.search.clicked.connect(self.run)
         self.event_record.clicked.connect(self.calendar)
+        self.record.clicked.connect(self.mean)
 
     def run(self):
-        self.name_2.setText("OK")
+        try:
+            self.color.hide()
+            self.comboBox.hide()
+            self.error.setText('')
+            self.name_2.setText('')
+            self.code_2.setText('')
+            self.metod_2.setText('')
+            con = sqlite3.connect('new_life.db')
+            cur = con.cursor()
+            if self.criteria.currentText() == 'Выберите критерий':
+                self.error.setText('Критерий не выбран')
+            elif self.criteria.currentText() == 'Материал':
+                result = cur.execute(f"""SELECT code FROM matcod
+                                            WHERE material == '{self.criteria_2.text()}'""").fetchone()
+                if result:
+                    self.name_2.setText(self.criteria_2.text())
+                    self.code_2.setText(result[0])
+                    print(result)
+                    result_2 = cur.execute(f"""SELECT method FROM prepar 
+                                                WHERE code == '{result[0]}'""").fetchall()
+                    self.metod_2.setText(result_2[0][0])
+                else:
+                    self.error.setText('Такой материал не перерабатывается.')
+            elif self.criteria.currentText() == 'Код переработки':
+                result = cur.execute(f"""SELECT material FROM matcod
+                                            WHERE code LIKE '%{self.criteria_2.text()} %'""").fetchall()
+                if len(result) == 1:
+                    result  = cur.execute("""SELECT name""")
+                elif len(result) > 1:
+                    for i in range(len(result)):
+                        self.comboBox.addItem(result[i][0])
+                    self.comboBox.show()
+
+        except Exception as e:
+            print(e)
 
     def calendar(self):
         try:
             con = sqlite3.connect('calendar.db')
             cur = con.cursor()
-            a = str(self.event.text())
-            cur.execute(f"""INSERT INTO dairy(date, text) VALUES({self.calendarWidget.selectedDate().getDate()}, {a})""")
-            print(cur)
+            data = date(self.calendarWidget.selectedDate().getDate()[0],
+                        self.calendarWidget.selectedDate().getDate()[1],
+                        self.calendarWidget.selectedDate().getDate()[2])
+            a = self.event.text()
+            if len(cur.execute(f"""SELECT date FROM dairy
+                    WHERE date == '{data}'""").fetchall()) > 0:
+                cur.execute(f"""UPDATE dairy
+                        SET text = '{a}'
+                        WHERE date == '{data}'""")
+            else:
+                cur.execute(f"""INSERT INTO dairy(`date`, `text`) VALUES('{data}', '{a}')""")
+            con.commit()
+            con.close()
+        except Exception as e:
+            print(e)
+
+    def mean(self):
+        try:
+            con = sqlite3.connect('mean.db')
+            cur = con.cursor()
+            if len(cur.execute(f"""SELECT name FROM stat
+                    WHERE name == '{self.meaning.text().strip().lower()}'""").fetchall()) > 0:
+                result = cur.execute(f"""SELECT quantity FROM stat
+                        WHERE name == '{self.meaning.text().strip().lower()}'""").fetchone()[0]
+                result += self.quantity.value()
+                cur.execute(f"""UPDATE stat
+                        SET quantity = '{result}'
+                        WHERE name == '{self.meaning.text().strip().lower()}'""")
+            else:
+                cur.execute(f"""INSERT INTO stat
+                        VALUES('{self.meaning.text().strip().lower()}', '{self.quantity.value()}')""")
             con.commit()
             con.close()
         except Exception as e:
